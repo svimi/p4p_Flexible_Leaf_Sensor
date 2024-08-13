@@ -35,18 +35,10 @@
 #include <FS.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ESP32Time.h>
 
 #define UPPER_BOUND  0X4000                 // max readout capacitance
 #define LOWER_BOUND  (-1 * UPPER_BOUND)
-#define CHANNEL0 0                          // channel to be read
-#define MEASURMENT0 0                       // measurment channel
-#define CHANNEL1 1                          // channel to be read
-#define MEASURMENT1 1                       // measurment channel
-#define CHANNEL2 2                          // channel to be read
-#define MEASURMENT2 2                       // measurment channel
-#define CHANNEL3 3                          // channel to be read
-#define MEASURMENT3 3                       // measurment channel
-
 #define SD_CS_PIN D1
 
 const char* ssid = "Capacitance Readings";
@@ -58,16 +50,15 @@ IPAddress subnet(255,255,255,0);
 
 WebServer server(80);
 
-uint8_t capdac0 = 0;
-uint8_t capdac1 = 0;
-uint8_t capdac2 = 0;
-uint8_t capdac3 = 0;
+ESP32Time rtc(43200);
 
-int32_t capacitance;
-// int32_t capacitance0;
-// int32_t capacitance1;
-// int32_t capacitance2;
-// int32_t capacitance3;
+uint8_t MEASUREMENT[] = {0, 1, 2, 3};
+uint8_t CHANNEL[] = {0, 1, 2, 3};
+uint8_t CAPDAC[] = {0, 0, 0, 0};
+
+int32_t rawCapacitance[4];
+float capacitance[4];
+float avgCapacitance[4];
 
 int cellCount = 1;
 
@@ -78,17 +69,22 @@ RTC_DATA_ATTR int FileSuffix = 0;
 String dataBuffer = "" ;
 String fileName = String( "/" )+ "DATA" + String(FileSuffix) + ".csv" ;
 
-
 void setup()
 {
   Wire.begin();        //i2c begin
   Serial.begin(115200); // serial baud rate
 
+  // configTime(0, 0, MY_NTP_SERVER);   // 0, 0 because we will use TZ in the next line
+  // setenv("TZ", MY_TZ, 1);            // Set environment variable with your time zone
+  // tzset();
+
+  rtc.setTime(0, 0, 14, 13, 8, 2024);
+
   if(!SD.begin(SD_CS_PIN)) {
-    Serial.println("Card Mount Failed");
+    // Serial.println("Card Mount Failed");
     return;
   } else {
-    Serial.println("Card Mount Passed");
+    // Serial.println("Card Mount Passed");
     writeFile(fileName.c_str(), "DataLogging:");
   }
 
@@ -101,53 +97,83 @@ void setup()
 void loop()
 {
   server.handleClient();
-
-  fdcRead(MEASURMENT0, CHANNEL0, capdac0, capacitance);
-  dataLogging();
-  fdcRead(MEASURMENT0, CHANNEL0, capdac0, capacitance);
-  dataLogging();
-  fdcRead(MEASURMENT0, CHANNEL0, capdac0, capacitance);  
-  dataLogging();
-  fdcRead(MEASURMENT0, CHANNEL0, capdac0, capacitance);  
-  dataLogging();
-
   
+  if((rtc.getHour(true) == 6) || (rtc.getHour(true) == 9) || (rtc.getHour(true) == 12) || (rtc.getHour(true) == 15) || (rtc.getHour(true) == 18)) {
+    for (int i = 0; i < 10; i++) {
+    dataLogging();
+    }
+  } else if ((rtc.getSecond() % 10) == 0) {
+    dataLogging();
+  } else {
+    fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);   
+  }
 }
 
-void fdcRead(uint8_t MEASURMENT, uint8_t CHANNEL, uint8_t &capdac, int32_t &capacitance) {
+void fdcRead(uint8_t *MEASUREMENT, uint8_t *CHANNEL, uint8_t *CAPDAC, int32_t *rawCapacitance) {
+  for (int i = 0; i < 4; i++) {
+    uint8_t measurement = MEASUREMENT[i];
+    uint8_t channel = CHANNEL[i];
+    uint8_t capdac = CAPDAC[i];
+    
+    FDC.configureMeasurementSingle(measurement, channel, capdac);
+    FDC.triggerSingleMeasurement(measurement, FDC1004_100HZ);
 
-  FDC.configureMeasurementSingle(MEASURMENT, CHANNEL, capdac);
-  FDC.triggerSingleMeasurement(MEASURMENT, FDC1004_100HZ);
+    //wait for completion
+    delay(15);
+    uint16_t value[2];
+    if (! FDC.readMeasurement(measurement, value))
+    {
+      int16_t msb = (int16_t) value[0];
+      /*int32_t*/ rawCapacitance[i] = ((int32_t)457) * ((int32_t)msb); //in attofarads
+      rawCapacitance[i] /= 1000;   //in femtofarads
+      rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
+      capacitance[i] = (float)rawCapacitance[i]/1000;
 
-  //wait for completion
-  delay(15);
-  uint16_t value[2];
-  if (! FDC.readMeasurement(MEASURMENT, value))
-  {
-    int16_t msb = (int16_t) value[0];
-    /*int32_t*/ capacitance = ((int32_t)457) * ((int32_t)msb); //in attofarads
-    capacitance /= 1000;   //in femtofarads
-    capacitance += ((int32_t)3028) * ((int32_t)capdac);
+      // Serial.print("CIN");
+      // Serial.print(MEASURMENT + 1);
+      // Serial.print(": ");
+      // Serial.print((((float)capacitance/1000)),4);
+      // Serial.print("  pf, ");
+      // Serial.println(capdac);
 
-    // Serial.print("CIN");
-    // Serial.print(MEASURMENT + 1);
-    // Serial.print(": ");
-    // Serial.print((((float)capacitance/1000)),4);
-    // Serial.print("  pf, ");
-    // Serial.println(capdac);
+      if (msb > UPPER_BOUND)               // adjust capdac accordingly
+    {
+        if (CAPDAC[i] < FDC1004_CAPDAC_MAX)
+      CAPDAC[i]++;
+      }
+    else if (msb < LOWER_BOUND)
+    {
+        if (CAPDAC[i] > 0)
+      CAPDAC[i]--;
+      }
 
-    if (msb > UPPER_BOUND)               // adjust capdac accordingly
-	{
-      if (capdac < FDC1004_CAPDAC_MAX)
-	  capdac++;
     }
-	else if (msb < LOWER_BOUND)
-	{
-      if (capdac > 0)
-	  capdac--;
-    }
-
   }
+}
+
+void fdcReadAverage() {
+
+  float average[] = {0, 0, 0, 0};
+
+  for (int i = 0; i < 10; i++) {
+    fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);
+    average[0] += capacitance[0];
+    average[1] += capacitance[1];
+    average[2] += capacitance[2];
+    average[3] += capacitance[3];
+  }
+
+    Serial.println(average[0]);
+    Serial.println(average[1]);
+    Serial.println(average[2]);
+    Serial.println(average[3]);
+
+
+  avgCapacitance[0] = average[0] /= 10;
+  avgCapacitance[1] = average[1] /= 10;
+  avgCapacitance[2] = average[2] /= 10;
+  avgCapacitance[3] = average[3] /= 10;
+
 }
 
 void createWebServer(const char* ssid, const char* password) {
@@ -161,7 +187,7 @@ void createWebServer(const char* ssid, const char* password) {
   server.on("/delete", HTTP_GET, handleDelete);
 
   server.begin();
-  Serial.println("WIFI successful startup");
+  // Serial.println("WIFI successful startup");
 
 }
 
@@ -194,7 +220,7 @@ void handleDelete() {
   if (fileName != "") {
     if (SD.exists("/" + fileName)) {
       fileName = "/" + fileName;
-      deleteFile(fileName.c_str());
+      SD.remove(fileName.c_str());
       writeFileTitle(fileName.c_str());
       server.sendHeader("Location", "/", true);
       server.send(303);
@@ -222,6 +248,8 @@ void writeFileTitle(const char * path) {
     return;
   }
   
+  file.print("TIME") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");
   file.print("CIN1") ? : Serial.println ("Write failed");
   file.print(",") ? : Serial.println ("Write failed");
   file.print("CIN2") ? : Serial.println ("Write failed");
@@ -229,7 +257,10 @@ void writeFileTitle(const char * path) {
   file.print("CIN3") ? : Serial.println ("Write failed");
   file.print(",") ? : Serial.println ("Write failed");
   file.println("CIN4") ? Serial.println ("File written") : Serial.println ("Write failed");
-
+  file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File written") : Serial.println ("Write failed");
+  file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+  
+ 
   file.close();
   
 }
@@ -261,6 +292,7 @@ void appendFile(const char * path, const char * message) {
     Serial.println("Failed to open file for appending");
     return;
   }
+
   
   if (cellCount != 4) {
     file.print(message) ? : Serial.println ("Append failed");
@@ -268,6 +300,8 @@ void appendFile(const char * path, const char * message) {
     cellCount++;
   } else {
     file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount = 1;
   }
 
@@ -276,21 +310,18 @@ void appendFile(const char * path, const char * message) {
 }
 
 void deleteFile(const char * path) {
-  Serial.printf("Deleting file: %s\n, path");
-
-  if(SD.remove(path)) {
-    Serial.println("File deleted");
-  } else {
-    Serial.println("Deleted Failed");
-  }
+  SD.remove(path);
 }
 
 void dataLogging(void) {
-  dataBuffer += String((((float)capacitance/1000)),4);
+  fdcReadAverage();
+  for (int i = 0; i < 4; i++) {
+    dataBuffer += String(avgCapacitance[i],4);
+    Serial.println(avgCapacitance[i]);
 
-  appendFile(fileName.c_str(), dataBuffer.c_str());
-  dataBuffer = "";
-
+    appendFile(fileName.c_str(), dataBuffer.c_str());
+    dataBuffer = "";
+  }
 }
 
 String SendHTML(){
@@ -361,7 +392,7 @@ String SendHTML(){
 }
 
     // Serial.print("CIN");
-    // Serial.print(MEASURMENT + 1);
+    // Serial.print(E + 1);
     // Serial.print(": ");
     // Serial.print((((float)capacitance/1000)),4);
     // Serial.print("  pf, ");
