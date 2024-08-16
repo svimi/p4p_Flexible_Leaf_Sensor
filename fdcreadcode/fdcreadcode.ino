@@ -39,7 +39,7 @@
 
 #define UPPER_BOUND  0X4000                 // max readout capacitance
 #define LOWER_BOUND  (-1 * UPPER_BOUND)
-#define SD_CS_PIN D1
+#define SD_CS_PIN D0
 
 const char* ssid = "Capacitance Readings";
 const char* password = "12345678";
@@ -130,11 +130,9 @@ void fdcRead(uint8_t *MEASUREMENT, uint8_t *CHANNEL, uint8_t *CAPDAC, int32_t *r
       capacitance[i] = (float)rawCapacitance[i]/1000;
 
       // Serial.print("CIN");
-      // Serial.print(MEASURMENT + 1);
       // Serial.print(": ");
-      // Serial.print((((float)capacitance/1000)),4);
-      // Serial.print("  pf, ");
-      // Serial.println(capdac);
+      // Serial.print((((float)capacitance[1])),4);
+      // Serial.println("  pf, ");
 
       if (msb > UPPER_BOUND)               // adjust capdac accordingly
     {
@@ -163,10 +161,10 @@ void fdcReadAverage() {
     average[3] += capacitance[3];
   }
 
-    Serial.println(average[0]);
-    Serial.println(average[1]);
-    Serial.println(average[2]);
-    Serial.println(average[3]);
+    // Serial.println(average[0]);
+    // Serial.println(average[1]);
+    // Serial.println(average[2]);
+    // Serial.println(average[3]);
 
 
   avgCapacitance[0] = average[0] /= 10;
@@ -317,7 +315,7 @@ void dataLogging(void) {
   fdcReadAverage();
   for (int i = 0; i < 4; i++) {
     dataBuffer += String(avgCapacitance[i],4);
-    Serial.println(avgCapacitance[i]);
+    // Serial.println(avgCapacitance[i]);
 
     appendFile(fileName.c_str(), dataBuffer.c_str());
     dataBuffer = "";
