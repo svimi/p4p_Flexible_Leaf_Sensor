@@ -36,7 +36,12 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESP32Time.h>
+#include <TinyGPS++.h>
+#include <HardwareSerial.h>
+#include <TimeLib.h>
 
+#define RX D7
+#define GPS_BAUD 9600
 #define UPPER_BOUND  0X4000                 // max readout capacitance
 #define LOWER_BOUND  (-1 * UPPER_BOUND)
 #define SD_CS_PIN D0
@@ -69,16 +74,35 @@ RTC_DATA_ATTR int FileSuffix = 0;
 String dataBuffer = "" ;
 String fileName = String( "/" )+ "DATA" + String(FileSuffix) + ".csv" ;
 
+TinyGPSPlus gps;
+
+HardwareSerial gpsSerial(1);
+
+float flat = -6.6255;
+float flon = -76.6574;
+
+unsigned long age, date, time;
+int month, day, hour, minute, second, hundredths;
+
 void setup()
 {
   Wire.begin();        //i2c begin
   Serial.begin(115200); // serial baud rate
+  gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
 
-  // configTime(0, 0, MY_NTP_SERVER);   // 0, 0 because we will use TZ in the next line
-  // setenv("TZ", MY_TZ, 1);            // Set environment variable with your time zone
-  // tzset();
+  if (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read())''
+  }
 
-  rtc.setTime(0, 0, 14, 13, 8, 2024);
+  while (!gps.location.isUpdated()) {
+    if (gpsSerial.available() > 0) {
+      gps.encode(gpsSerial.read())''
+    }
+  }
+
+  gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age);
+
+  // rtc.setTime(0, 0, 14, 13, 8, 2024);
 
   if(!SD.begin(SD_CS_PIN)) {
     // Serial.println("Card Mount Failed");
@@ -97,12 +121,14 @@ void setup()
 void loop()
 {
   server.handleClient();
-  
-  if((rtc.getHour(true) == 6) || (rtc.getHour(true) == 9) || (rtc.getHour(true) == 12) || (rtc.getHour(true) == 15) || (rtc.getHour(true) == 18)) {
+  gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age);
+  flat = gps.location.lat();
+  flon = gps.location.lng();
+  if((hour == 6) || (hour == 9) || (hour == 12) || (hour == 15) || (hour == 18)) {
     for (int i = 0; i < 10; i++) {
     dataLogging();
     }
-  } else if ((rtc.getSecond() % 10) == 0) {
+  } else if ((second % 10) == 0) {
     dataLogging();
   } else {
     fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);   
@@ -245,7 +271,9 @@ void writeFileTitle(const char * path) {
     Serial.println ("Failed to open file for writing");
     return;
   }
-  
+
+  file.print("LOCATION") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");
   file.print("TIME") ? : Serial.println ("Write failed");
   file.print(",") ? : Serial.println ("Write failed");
   file.print("CIN1") ? : Serial.println ("Write failed");
@@ -292,7 +320,13 @@ void appendFile(const char * path, const char * message) {
   }
 
   
-  if (cellCount != 4) {
+  if (cellCount == 1) {
+    file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+  } 
+  
+  (cellCount != 4) {
     file.print(message) ? : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount++;
@@ -336,6 +370,16 @@ String SendHTML(){
   html += "<h1 style='background-color:powderblue; text-align:center;'>Data Logging - File Interface</h1>\n";
   html += "<h3 style='background-color:powderblue; text-align:center;'>You may <b>download</b> or <b>delete</b> files on this page</h3>\n";
   html += "<table>\n";
+  
+  // html += "<style>#map{height:400px;width:100%;}</style></head> <body><h1>My Google Map</h1><div id='map'></div><script>function initMap(){var options = {zoom:8,center:{lat:";
+  // html += flat;
+  // html += ",lng:";
+  // html += flon;
+  // html += "}};var map = new google.maps.Map(document.getElementById('map'), options);google.maps.event.addListener(map, 'click', function(event){addMarker({coords:event.latLng});});var markers = [{coords:{lat:";
+  // html += flat;
+  // html += ",lng:";
+  // html += flon;
+  // html += "}}];for(var i = 0;i < markers.length;i++){addMarker(markers[i]);}function addMarker(props){var marker = new google.maps.Marker({position:props.coords,map:map,});if(props.iconImage){marker.setIcon(props.iconImage);}if(props.content){var infoWindow = new google.maps.InfoWindow({content:props.content});marker.addListener('click', function(){infoWindow.open(map, marker);});}}}</script><script async defer src='https://maps.googleapis.com/maps/api/js?key=AIzaSyDHNUG9E870MPZ38LzijxoPyPgtiUFYjTM&callback=initMap'></script></body></html>";
   
   while (File file = root.openNextFile()) {
     if (!file.isDirectory()){

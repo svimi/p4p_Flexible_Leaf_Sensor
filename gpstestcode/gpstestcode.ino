@@ -16,19 +16,6 @@ HardwareSerial gpsSerial(1);
 void setup()
 {
     Serial.begin(9600);
-    // Serial.print("Connecting to ");
-    // Serial.println(ssid);
-
-// WiFi.begin(ssid, password);
-//     while (WiFi.status() != WL_CONNECTED) {
-//         delay(500);
-//         Serial.print(".");
-//     }
-//     Serial.println("");
-//     Serial.println("WiFi connected");
-//     Serial.println("IP address: ");    // this is the address to use for viewing the map
-//     Serial.println(WiFi.localIP());
-//     server.begin();
 
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
   Serial.println("Serial 2 started at 9600 baud rate");
