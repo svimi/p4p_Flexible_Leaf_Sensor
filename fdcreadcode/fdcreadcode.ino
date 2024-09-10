@@ -38,7 +38,6 @@
 #include <ESP32Time.h>
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
-#include <TimeLib.h>
 
 #define RX D7
 #define GPS_BAUD 9600
@@ -81,7 +80,6 @@ HardwareSerial gpsSerial(1);
 float flat = -6.6255;
 float flon = -76.6574;
 
-unsigned long age, date, time;
 int month, day, hour, minute, second, hundredths;
 
 void setup()
@@ -91,16 +89,14 @@ void setup()
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
 
   if (gpsSerial.available() > 0) {
-    gps.encode(gpsSerial.read())''
+    gps.encode(gpsSerial.read());
   }
 
   while (!gps.location.isUpdated()) {
     if (gpsSerial.available() > 0) {
-      gps.encode(gpsSerial.read())''
+      gps.encode(gpsSerial.read());
     }
   }
-
-  gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age);
 
   // rtc.setTime(0, 0, 14, 13, 8, 2024);
 
@@ -121,9 +117,12 @@ void setup()
 void loop()
 {
   server.handleClient();
-  gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age);
-  flat = gps.location.lat();
-  flon = gps.location.lng();
+
+  if (gps.location.isUpdated()) {
+    flat = gps.location.lat();
+    flon = gps.location.lng();
+  }
+
   if((hour == 6) || (hour == 9) || (hour == 12) || (hour == 15) || (hour == 18)) {
     for (int i = 0; i < 10; i++) {
     dataLogging();
@@ -321,20 +320,19 @@ void appendFile(const char * path, const char * message) {
 
   
   if (cellCount == 1) {
-    file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
-    file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.println(flat) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.println(" ") ? Serial.println ("File appended") : Serial.println ("Append failed");    
+    file.print(flon) ? Serial.println ("File appended") : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
-  } 
-  
-  (cellCount != 4) {
+  } else if (cellCount = 5) {
+    file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
+                  file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.year()) + "/" + String(gps.date.month()) + "/" + String(gps.date.day())) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+    cellCount = 1;
+  } else {
     file.print(message) ? : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount++;
-  } else {
-    file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
-    file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File appended") : Serial.println ("Append failed");
-    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
-    cellCount = 1;
   }
 
 
