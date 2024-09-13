@@ -1,41 +1,17 @@
-//////////////////////////////////////////////////////////////////////////////////////////
-//
-//    Demo code for the FDC1004 capacitance sensor breakout board
-//
-//    Author: Ashwin Whitchurch
-//    Copyright (c) 2018 ProtoCentral
-//
-//    This example measures raw capacitance across CHANNEL0 and Gnd and
-//		prints on serial terminal
-//
-//		Arduino connections:
-//
-//		Arduino   FDC1004 board
-//		-------   -------------
-//		5V - Vin
-// 	 GND - GND
-//		A4 - SDA
-//		A5 - SCL
-//
-//    This software is licensed under the MIT License(http://opensource.org/licenses/MIT).
-//
-//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-//   NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-//   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-//   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-//   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
-//   For information on how to use, visit https://github.com/protocentral/ProtoCentral_fdc1004_breakout
-/////////////////////////////////////////////////////////////////////////////////////////
-
 #include <Wire.h>
-#include <Protocentral_FDC1004.h>
+#include "Protocentral_FDC1004_EDITTED.h"
 #include <SPI.h>
 #include <SD.h>
 #include <FS.h>
 #include <WiFi.h>
 #include <WebServer.h>
+<<<<<<< Updated upstream
 #include <ESP32Time.h>
+=======
+// #include <ESP32Time.h>
+#include <TinyGPS++.h>
+#include <HardwareSerial.h>
+>>>>>>> Stashed changes
 
 #define UPPER_BOUND  0X4000                 // max readout capacitance
 #define LOWER_BOUND  (-1 * UPPER_BOUND)
@@ -50,7 +26,7 @@ IPAddress subnet(255,255,255,0);
 
 WebServer server(80);
 
-ESP32Time rtc(43200);
+// ESP32Time rtc(43200);
 
 uint8_t MEASUREMENT[] = {0, 1, 2, 3};
 uint8_t CHANNEL[] = {0, 1, 2, 3};
@@ -60,7 +36,7 @@ int32_t rawCapacitance[4];
 float capacitance[4];
 float avgCapacitance[4];
 
-int cellCount = 1;
+int cellCount = 2;
 
 FDC1004 FDC;
 
@@ -69,16 +45,43 @@ RTC_DATA_ATTR int FileSuffix = 0;
 String dataBuffer = "" ;
 String fileName = String( "/" )+ "DATA" + String(FileSuffix) + ".csv" ;
 
+<<<<<<< Updated upstream
+=======
+TinyGPSPlus gps;
+
+HardwareSerial gpsSerial(1);
+
+float flat = -6.6255;
+float flon = -76.6574;
+
+>>>>>>> Stashed changes
 void setup()
 {
   Wire.begin();        //i2c begin
   Serial.begin(115200); // serial baud rate
+<<<<<<< Updated upstream
 
   // configTime(0, 0, MY_NTP_SERVER);   // 0, 0 because we will use TZ in the next line
   // setenv("TZ", MY_TZ, 1);            // Set environment variable with your time zone
   // tzset();
 
   rtc.setTime(0, 0, 14, 13, 8, 2024);
+=======
+  gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
+
+  /////// loops until fix on satellite
+  // while (gpsSerial.available() > 0) {
+  //   gps.encode(gpsSerial.read());
+  // }
+
+  // while (!gps.location.isUpdated()) {
+  //   while (gpsSerial.available() > 0) {
+  //     gps.encode(gpsSerial.read());
+  //   }
+  // }
+  // Serial.println("GPS FIXED")
+  ///////
+>>>>>>> Stashed changes
 
   if(!SD.begin(SD_CS_PIN)) {
     // Serial.println("Card Mount Failed");
@@ -97,12 +100,30 @@ void setup()
 void loop()
 {
   server.handleClient();
+<<<<<<< Updated upstream
   
   if((rtc.getHour(true) == 6) || (rtc.getHour(true) == 9) || (rtc.getHour(true) == 12) || (rtc.getHour(true) == 15) || (rtc.getHour(true) == 18)) {
     for (int i = 0; i < 10; i++) {
     dataLogging();
     }
   } else if ((rtc.getSecond() % 10) == 0) {
+=======
+
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+  }
+
+  if (gps.location.isUpdated()) {
+    flat = gps.location.lat();
+    flon = gps.location.lng();
+  }
+
+  if((gps.time.hour() == 6) || (gps.time.hour() == 9) || (gps.time.hour() == 12) || (gps.time.hour() == 15) || (gps.time.hour() == 18)) {
+    for (int i = 0; i < 10; i++) {
+    dataLogging();
+    }
+  } else if ((gps.time.second() % 10) == 0) {
+>>>>>>> Stashed changes
     dataLogging();
   } else {
     fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);   
@@ -161,12 +182,6 @@ void fdcReadAverage() {
     average[3] += capacitance[3];
   }
 
-    // Serial.println(average[0]);
-    // Serial.println(average[1]);
-    // Serial.println(average[2]);
-    // Serial.println(average[3]);
-
-
   avgCapacitance[0] = average[0] /= 10;
   avgCapacitance[1] = average[1] /= 10;
   avgCapacitance[2] = average[2] /= 10;
@@ -220,6 +235,7 @@ void handleDelete() {
       fileName = "/" + fileName;
       SD.remove(fileName.c_str());
       writeFileTitle(fileName.c_str());
+      cellCount = 2;
       server.sendHeader("Location", "/", true);
       server.send(303);
     } else {
@@ -255,7 +271,9 @@ void writeFileTitle(const char * path) {
   file.print("CIN3") ? : Serial.println ("Write failed");
   file.print(",") ? : Serial.println ("Write failed");
   file.println("CIN4") ? Serial.println ("File written") : Serial.println ("Write failed");
-  file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File written") : Serial.println ("Write failed");
+  file.print(String(flat) + ":" + String(flon)) ? Serial.println ("File appended") : Serial.println ("Append failed");
+  file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");  
+        file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year())) ? Serial.println ("File appended") : Serial.println ("Append failed");
   file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
   
  
@@ -292,6 +310,7 @@ void appendFile(const char * path, const char * message) {
   }
 
   
+<<<<<<< Updated upstream
   if (cellCount != 4) {
     file.print(message) ? : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
@@ -301,6 +320,21 @@ void appendFile(const char * path, const char * message) {
     file.print(rtc.getTime("%B %d %Y %H:%M:%S")) ? Serial.println ("File appended") : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount = 1;
+=======
+  if (cellCount == 5) {
+    file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(String(flat) + ":" + String(flon)) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+    cellCount = 1;
+  } else if (cellCount == 1) {
+    file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year())) ? Serial.println ("File appended") : Serial.println ("Append failed");        
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+    cellCount++;
+  } else {
+    file.print(message) ? : Serial.println ("Append failed");
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+    cellCount++;
+>>>>>>> Stashed changes
   }
 
 
