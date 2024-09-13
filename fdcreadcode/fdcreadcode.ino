@@ -36,8 +36,11 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESP32Time.h>
+<<<<<<< HEAD
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
+=======
+>>>>>>> parent of 3a550b3 (close to final)
 
 #define RX D7
 #define GPS_BAUD 9600
@@ -73,6 +76,7 @@ RTC_DATA_ATTR int FileSuffix = 0;
 String dataBuffer = "" ;
 String fileName = String( "/" )+ "DATA" + String(FileSuffix) + ".csv" ;
 
+<<<<<<< HEAD
 TinyGPSPlus gps;
 
 HardwareSerial gpsSerial(1);
@@ -82,10 +86,13 @@ float flon = -76.6574;
 
 int month, day, hour, minute, second, hundredths;
 
+=======
+>>>>>>> parent of 3a550b3 (close to final)
 void setup()
 {
   Wire.begin();        //i2c begin
   Serial.begin(115200); // serial baud rate
+<<<<<<< HEAD
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
 
   if (gpsSerial.available() > 0) {
@@ -99,6 +106,14 @@ void setup()
   }
 
   // rtc.setTime(0, 0, 14, 13, 8, 2024);
+=======
+
+  // configTime(0, 0, MY_NTP_SERVER);   // 0, 0 because we will use TZ in the next line
+  // setenv("TZ", MY_TZ, 1);            // Set environment variable with your time zone
+  // tzset();
+
+  rtc.setTime(0, 0, 14, 13, 8, 2024);
+>>>>>>> parent of 3a550b3 (close to final)
 
   if(!SD.begin(SD_CS_PIN)) {
     // Serial.println("Card Mount Failed");
@@ -117,6 +132,7 @@ void setup()
 void loop()
 {
   server.handleClient();
+<<<<<<< HEAD
 
   if (gps.location.isUpdated()) {
     flat = gps.location.lat();
@@ -128,6 +144,14 @@ void loop()
     dataLogging();
     }
   } else if ((second % 10) == 0) {
+=======
+  
+  if((rtc.getHour(true) == 6) || (rtc.getHour(true) == 9) || (rtc.getHour(true) == 12) || (rtc.getHour(true) == 15) || (rtc.getHour(true) == 18)) {
+    for (int i = 0; i < 10; i++) {
+    dataLogging();
+    }
+  } else if ((rtc.getSecond() % 10) == 0) {
+>>>>>>> parent of 3a550b3 (close to final)
     dataLogging();
   } else {
     fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);   
@@ -319,20 +343,28 @@ void appendFile(const char * path, const char * message) {
   }
 
   
+<<<<<<< HEAD
   if (cellCount == 1) {
     file.println(flat) ? Serial.println ("File appended") : Serial.println ("Append failed");
     file.println(" ") ? Serial.println ("File appended") : Serial.println ("Append failed");    
     file.print(flon) ? Serial.println ("File appended") : Serial.println ("Append failed");
+=======
+  if (cellCount != 4) {
+    file.print(message) ? : Serial.println ("Append failed");
+>>>>>>> parent of 3a550b3 (close to final)
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
   } else if (cellCount = 5) {
     file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
                   file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.year()) + "/" + String(gps.date.month()) + "/" + String(gps.date.day())) ? Serial.println ("File appended") : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount = 1;
+<<<<<<< HEAD
   } else {
     file.print(message) ? : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount++;
+=======
+>>>>>>> parent of 3a550b3 (close to final)
   }
 
 
