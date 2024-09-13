@@ -9,6 +9,8 @@
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
 
+#define RX D7
+#define GPS_BAUD 9600
 #define UPPER_BOUND  0X4000                 // max readout capacitance
 #define LOWER_BOUND  (-1 * UPPER_BOUND)
 #define SD_CS_PIN D0
@@ -32,7 +34,7 @@ int32_t rawCapacitance[4];
 float capacitance[4];
 float avgCapacitance[4];
 
-int cellCount = 2;
+int cellCount = 1;
 
 FDC1004 FDC;
 
@@ -68,10 +70,10 @@ void setup()
   ///////
 
   if(!SD.begin(SD_CS_PIN)) {
-    // Serial.println("Card Mount Failed");
+    Serial.println("Card Mount Failed");
     return;
   } else {
-    // Serial.println("Card Mount Passed");
+    Serial.println("Card Mount Passed");
     writeFile(fileName.c_str(), "DataLogging:");
   }
 
@@ -210,7 +212,6 @@ void handleDelete() {
       fileName = "/" + fileName;
       SD.remove(fileName.c_str());
       writeFileTitle(fileName.c_str());
-      cellCount = 2;
       server.sendHeader("Location", "/", true);
       server.send(303);
     } else {
@@ -223,37 +224,6 @@ void handleDelete() {
 
 void handleNotFound() {
   server.send(404, "text/plain", "Not found");
-}
-
-
-
-void writeFileTitle(const char * path) {
-
-  Serial. printf( "Writing file: %s\n", path);
-
-  File file= SD.open(path, FILE_WRITE);
-  if(!file) { 
-    Serial.println ("Failed to open file for writing");
-    return;
-  }
-  
-  file.print("TIME") ? : Serial.println ("Write failed");
-  file.print(",") ? : Serial.println ("Write failed");
-  file.print("CIN1") ? : Serial.println ("Write failed");
-  file.print(",") ? : Serial.println ("Write failed");
-  file.print("CIN2") ? : Serial.println ("Write failed");
-  file.print(",") ? : Serial.println ("Write failed");
-  file.print("CIN3") ? : Serial.println ("Write failed");
-  file.print(",") ? : Serial.println ("Write failed");
-  file.println("CIN4") ? Serial.println ("File written") : Serial.println ("Write failed");
-  file.print(String(flat) + ":" + String(flon)) ? Serial.println ("File appended") : Serial.println ("Append failed");
-  file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");  
-        file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year())) ? Serial.println ("File appended") : Serial.println ("Append failed");
-  file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
-  
- 
-  file.close();
-  
 }
 
 void writeFile (const char * path, const char * message) {
@@ -274,6 +244,55 @@ void writeFile (const char * path, const char * message) {
   file.close();
 }
 
+void writeFileTitle(const char * path) {
+
+  Serial. printf( "Writing file: %s\n", path);
+
+  File file= SD.open(path, FILE_WRITE);
+  if(!file) { 
+    Serial.println ("Failed to open file for writing");
+    return;
+  }
+  
+  file.print("LOCATION") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");  
+  file.print("TIME") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");
+  file.print("CIN1") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");
+  file.print("CIN2") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");
+  file.print("CIN3") ? : Serial.println ("Write failed");
+  file.print(",") ? : Serial.println ("Write failed");
+  file.println("CIN4") ? Serial.println ("File written") : Serial.println ("Write failed");
+  
+ 
+  file.close();
+  
+}
+
+void appendFileLocAndTime (const char * path) {
+  Serial.printf( "Writing file: %s\n", path);
+
+  File file= SD.open(path, FILE_APPEND);
+  if(!file) { 
+    Serial.println ("Failed to open file for writing");
+    return;
+  }
+
+  if (cellCount == 1) {
+    file.print(String(flat) + ":" + String(flon)) ? Serial.println ("File appended") : Serial.println ("Append failed");
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+    cellCount++;
+  } else if (cellCount == 2) {
+    file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year())) ? Serial.println ("File appended") : Serial.println ("Append failed");        
+    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
+    cellCount++;
+  }
+  
+  file.close();
+}
+
 void appendFile(const char * path, const char * message) {
   Serial.printf("Appending to file: %s\n", path);
 
@@ -284,16 +303,9 @@ void appendFile(const char * path, const char * message) {
     return;
   }
 
-  
-  if (cellCount == 5) {
+  if (cellCount == 6) {
     file.println(message) ? Serial.println ("File appended") : Serial.println ("Append failed");
-    file.print(String(flat) + ":" + String(flon)) ? Serial.println ("File appended") : Serial.println ("Append failed");
-    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
     cellCount = 1;
-  } else if (cellCount == 1) {
-    file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year())) ? Serial.println ("File appended") : Serial.println ("Append failed");        
-    file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
-    cellCount++;
   } else {
     file.print(message) ? : Serial.println ("Append failed");
     file.print(",") ? Serial.println ("File appended") : Serial.println ("Append failed");
@@ -310,8 +322,14 @@ void deleteFile(const char * path) {
 
 void dataLogging(void) {
   fdcReadAverage();
+
+  appendFileLocAndTime(fileName.c_str());
+  appendFileLocAndTime(fileName.c_str());   
+
   for (int i = 0; i < 4; i++) {
     dataBuffer += String(avgCapacitance[i],4);
+    // dataBuffer += "-";
+    // dataBuffer += String(i);
     // Serial.println(avgCapacitance[i]);
 
     appendFile(fileName.c_str(), dataBuffer.c_str());
