@@ -28,7 +28,7 @@
 #define LOWER_BOUND (-1 * UPPER_BOUND)
 #define SD_CS_PIN D0  // SD card chip select pin
 
-// Web server parameterisation
+// Web server initialisation
 // Directions for webserver use:
 // 1. Connect to ESP32 wifi connection named as the ssid.
 // 2. Enter the gateway address into a browser (e.g 192.168.1.1),
@@ -40,7 +40,7 @@ IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 WebServer server(80);
 
-// FDC 4 channel parameterisation
+// FDC 4 channel initialisation
 uint8_t MEASUREMENT[] = { 0, 1, 2, 3 };
 uint8_t CHANNEL[] = { 0, 1, 2, 3 };
 uint8_t CAPDAC[] = { 0, 0, 0, 0 };
@@ -70,11 +70,10 @@ int cellCount = 1;
 
 void setup() {
   Wire.begin();          //i2c begin
-  Serial.begin(115200);  // serial baud rate
-
-  //// GPS Initialisation - Comment out if no GPS
+  //// GPS communication to ESP32 - Comment out if no GPS
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
   ////
+  // Serial.begin(115200);  // serial baud rate - can be commented out when not testing
 
   //// loops until fix on satellite - should be commented out when testing indoors
   // while (gpsSerial.available() > 0) {
@@ -212,17 +211,17 @@ void writeFileTitle(const char* path) {
     return;
   }
 
-  file.print("LOCATION") ?: Serial.println("Write failed");
-  file.print(",") ?: Serial.println("Write failed");
-  file.print("TIME") ?: Serial.println("Write failed");
-  file.print(",") ?: Serial.println("Write failed");
-  file.print("SENSOR_1/microL") ?: Serial.println("Write failed");
-  file.print(",") ?: Serial.println("Write failed");
-  file.print("SENSOR_2/microL") ?: Serial.println("Write failed");
-  file.print(",") ?: Serial.println("Write failed");
-  file.print("SENSOR_3/microL") ?: Serial.println("Write failed");
-  file.print(",") ?: Serial.println("Write failed");
-  file.println("SENSOR_4/microL") ? Serial.println("File written") : Serial.println("Write failed");
+  file.print("LOCATION");
+  file.print(",");
+  file.print("TIME");
+  file.print(",");
+  file.print("SENSOR_1/microL");
+  file.print(",");
+  file.print("SENSOR_2/microL");
+  file.print(",");
+  file.print("SENSOR_3/microL");
+  file.print(",");
+  file.println("SENSOR_4/microL");
 
 
   file.close();
@@ -238,10 +237,10 @@ void appendFileLocAndTime(const char* path) {
     return;
   }
 
-  file.print(String(flat) + ":" + String(flon)) ? Serial.println("File appended") : Serial.println("Append failed");
-  file.print(",") ? Serial.println("File appended") : Serial.println("Append failed"); 
-  file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year())) ? Serial.println("File appended") : Serial.println("Append failed");
-  file.print(",") ? Serial.println("File appended") : Serial.println("Append failed");
+  file.print(String(flat) + ":" + String(flon));
+  file.print(","); 
+  file.print(String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second()) + " - " + String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year()));
+  file.print(",");
 
   file.close();
 }
@@ -258,11 +257,11 @@ void appendFile(const char* path, const char* message) {
   }
 
   if (cellCount == 4) { // newline check
-    file.println(message) ? Serial.println("File appended") : Serial.println("Append failed");
+    file.println(message);
     cellCount = 1;
   } else {
     file.print(message) ?: Serial.println("Append failed");
-    file.print(",") ? Serial.println("File appended") : Serial.println("Append failed");
+    file.print(",");
     cellCount++;
   }
 
