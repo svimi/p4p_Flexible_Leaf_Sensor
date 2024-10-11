@@ -118,10 +118,8 @@ void loop() {
 
   // Checks leaf moisture every 3 hours from 6am to 6pm 
   // If no GPS available, simply use dataLogging() alone 
-  if ((gps.time.hour() == 6) || (gps.time.hour() == 9) || (gps.time.hour() == 12) || (gps.time.hour() == 15) || (gps.time.hour() == 18)) {
-    for (int i = 0; i < 10; i++) {
-      dataLogging();
-    }
+  if ((gps.time.hour() == 6 && gps.time.minute() == 0 && (gps.time.second() % 10) == 0) || (gps.time.hour() == 9 && gps.time.minute() == 0 && (gps.time.second() % 10) == 0) || (gps.time.hour() == 12 && gps.time.minute() == 0 && (gps.time.second() % 10) == 0) || (gps.time.hour() == 15 && gps.time.minute() == 0 && (gps.time.second() % 10) == 0) || (gps.time.hour() == 18 && gps.time.minute() == 0 && (gps.time.second() % 10) == 0)) {
+    dataLogging();
   //// Test code - prints values every ten seconds  
   } else if ((gps.time.second() % 10) == 0) {
     dataLogging();
@@ -275,7 +273,7 @@ void deleteFile(const char* path) {
 }
 
 //////// Web Server Handling
-////     Author: Hang Sun
+
 void createWebServer(const char* ssid, const char* password) {
 
   WiFi.softAP(ssid, password);
