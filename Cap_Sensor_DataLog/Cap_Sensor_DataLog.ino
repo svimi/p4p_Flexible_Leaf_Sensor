@@ -182,7 +182,7 @@ void fdcReadAverage() {
   }
 }
 
-// formatting csv file
+// Formatting csv file
 void dataLogging(void) {
   fdcReadAverage();
 
@@ -273,7 +273,6 @@ void deleteFile(const char* path) {
 }
 
 //////// Web Server Handling
-
 void createWebServer(const char* ssid, const char* password) {
 
   WiFi.softAP(ssid, password);
@@ -397,4 +396,3 @@ String SendHTML() {
 
   return html;
 }
-//// end of Hang's part
