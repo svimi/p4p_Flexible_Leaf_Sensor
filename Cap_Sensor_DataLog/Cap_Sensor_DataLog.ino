@@ -73,7 +73,7 @@ void setup() {
   //// GPS communication to ESP32 - Comment out if no GPS
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RX);
   ////
-  // Serial.begin(115200);  // serial baud rate - can be commented out when not testing
+  Serial.begin(115200);  // serial baud rate - can be commented out when not testing
 
   //// loops until fix on satellite - should be commented out when testing indoors
   // while (gpsSerial.available() > 0) {
@@ -179,6 +179,8 @@ void fdcReadAverage() {
     avgCapacitance[i] = average[i] /= 10;
     // converts capacitance to water vol with equation derived from sensor experiments
     waterVol[i] = avgCapacitance[i] * 0.7775 - 11.325; // volume in microlitre
+    Serial.print("Water Volume: ");
+    Serial.println(waterVol[i));
   }
 }
 
