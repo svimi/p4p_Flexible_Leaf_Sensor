@@ -180,7 +180,7 @@ void fdcReadAverage() {
     // converts capacitance to water vol with equation derived from sensor experiments
     waterVol[i] = avgCapacitance[i] * 0.7775 - 11.325; // volume in microlitre
     Serial.print("Water Volume: ");
-    Serial.println(waterVol[i));
+    Serial.println(waterVol[i]);
   }
 }
 
